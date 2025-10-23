@@ -1,0 +1,21 @@
+{
+  "short_name": "Repair AI",
+  "name": "Jharkhand Mines Machinery Repair AI",
+  "description": "An AI-powered assistant providing dynamic repair guidance for heavy machinery used in the mining areas of Jharkhand.",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icons/icon-512x512.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/index.html",
+  "display": "standalone",
+  "theme_color": "#facc15",
+  "background_color": "#111827"
+}

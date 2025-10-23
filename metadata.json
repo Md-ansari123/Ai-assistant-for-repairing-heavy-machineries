@@ -1,0 +1,8 @@
+{
+  "name": "Jharkhand Mines Machinery Repair AI",
+  "description": "An AI-powered assistant providing dynamic repair guidance for heavy machinery used in the mining areas of Jharkhand. Users can describe problems, upload images, and receive step-by-step repair instructions.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
