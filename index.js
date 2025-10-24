@@ -254,7 +254,6 @@ const clearHistory = () => {
 };
 
 // --- GEMINI API SERVICE ---
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const fileToGenerativePart = async (file) => {
   const base64EncodedDataPromise = new Promise((resolve) => {
     const reader = new FileReader();
@@ -289,6 +288,7 @@ const repairGuideSchema = {
 };
 
 const generateRepairGuide = async (problemDescription, mediaFile) => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const systemInstruction = `You are an expert AI mechanic for the Jharkhand Mining Division. Provide a detailed repair guide. You MUST provide two separate time estimates: 'machineDowntime' (total out-of-service time) and 'manualLaborTime' (hands-on work time), ensuring 'manualLaborTime' <= 'machineDowntime'. Include preventative maintenance tips. Be professional, clear, and prioritize safety. Do not process PII. List specific materials like 'cotton tape, Mica tape' for motors, or 'contactors, timers' for panels. If an image is provided, you MUST include a normalized 'boundingBox' for each relevant repair step; otherwise, omit it. Respond in JSON format according to the schema.`;
     const contents = [{ text: `Problem: ${problemDescription}` }];
     if (mediaFile) {
@@ -307,10 +307,13 @@ const generateRepairGuide = async (problemDescription, mediaFile) => {
     }
 };
 
-const createChatSession = (initialContext) => ai.chats.create({
-    model: 'gemini-2.5-flash',
-    config: { systemInstruction: `You are an AI assistant for a heavy machinery technician. The initial problem: "${initialContext}". Answer follow-up questions concisely. Do not ask for or process any PII.` }
-});
+const createChatSession = (initialContext) => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    return ai.chats.create({
+        model: 'gemini-2.5-flash',
+        config: { systemInstruction: `You are an AI assistant for a heavy machinery technician. The initial problem: "${initialContext}". Answer follow-up questions concisely. Do not ask for or process any PII.` }
+    });
+};
 
 const sendChatMessage = async (chat, message) => (await chat.sendMessage({ message })).text;
 
@@ -320,6 +323,7 @@ const translationArraySchema = {
     required: ['translations'],
 };
 const translateRepairGuide = async (guide, targetLanguage) => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const stringsToTranslate = [
         guide.diagnosis, guide.estimatedCost, guide.machineDowntime, guide.manualLaborTime, guide.partAvailability,
         ...guide.requiredTools, ...(guide.requiredMaterials || []), ...guide.safetyWarnings,
