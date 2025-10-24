@@ -43,16 +43,16 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     const fetchTranslations = async () => {
       try {
         const [enRes, enInRes, hiRes, bnRes, teRes, taRes, knRes, urRes, mrRes, guRes] = await Promise.all([
-          fetch('/translations/en.json'),
-          fetch('/translations/en_in.json'),
-          fetch('/translations/hi.json'),
-          fetch('/translations/bn.json'),
-          fetch('/translations/te.json'),
-          fetch('/translations/ta.json'),
-          fetch('/translations/kn.json'),
-          fetch('/translations/ur.json'),
-          fetch('/translations/mr.json'),
-          fetch('/translations/gu.json'),
+          fetch('./translations/en.json'),
+          fetch('./translations/en_in.json'),
+          fetch('./translations/hi.json'),
+          fetch('./translations/bn.json'),
+          fetch('./translations/te.json'),
+          fetch('./translations/ta.json'),
+          fetch('./translations/kn.json'),
+          fetch('./translations/ur.json'),
+          fetch('./translations/mr.json'),
+          fetch('./translations/gu.json'),
         ]);
 
         if (!enRes.ok || !enInRes.ok || !hiRes.ok || !bnRes.ok || !teRes.ok || !taRes.ok || !knRes.ok || !urRes.ok || !mrRes.ok || !guRes.ok) {

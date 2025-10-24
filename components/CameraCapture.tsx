@@ -1,24 +1,19 @@
+
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 // FIX: Aliased `Blob` from `@google/genai` to `GenaiBlob` to avoid conflict with the native `Blob` type.
 import { GoogleGenAI, FunctionDeclaration, Type, Modality, LiveServerMessage, Blob as GenaiBlob } from "@google/genai";
 import { useLanguage } from '../contexts/LanguageContext';
 import { CloseIcon } from './icons/CloseIcon';
-import { CameraIcon } from './icons/CameraIcon';
-import { VideoIcon } from './icons/VideoIcon';
 import { FlashOnIcon } from './icons/FlashOnIcon';
 import { FlashOffIcon } from './icons/FlashOffIcon';
-import { SettingsIcon } from './icons/SettingsIcon';
 import { RetakeIcon } from './icons/RetakeIcon';
 import { CheckIcon } from './icons/CheckIcon';
-import { StopIcon } from './icons/StopIcon';
 import { SmallSpinner } from './icons/SmallSpinner';
 import type { ArComponent } from '../types';
 import { ZoomInIcon } from './icons/ZoomInIcon';
 import { ZoomOutIcon } from './icons/ZoomOutIcon';
-import { ArrowUpIcon } from './icons/ArrowUpIcon';
-import { ArrowDownIcon } from './icons/ArrowDownIcon';
-import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
-import { ArrowRightIcon } from './icons/ArrowRightIcon';
+
 
 const FRAME_RATE = 10; // Send a frame every 1/10th of a second
 const JPEG_QUALITY = 0.7;
@@ -30,13 +25,6 @@ interface CameraCaptureProps {
 }
 
 type Mode = 'ar' | 'image' | 'video';
-type Quality = '480p' | '720p' | '1080p';
-
-const qualityConstraints: Record<Quality, MediaTrackConstraints> = {
-  '480p': { width: { ideal: 640 }, height: { ideal: 480 } },
-  '720p': { width: { ideal: 1280 }, height: { ideal: 720 } },
-  '1080p': { width: { ideal: 1920 }, height: { ideal: 1080 } },
-};
 
 // --- Encoding/Decoding Helpers ---
 function encode(bytes: Uint8Array) {
@@ -122,12 +110,9 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
   const audioContextRef = useRef<AudioContext | null>(null);
   const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
   
-  const [mode, setMode] = useState<Mode>('ar');
+  const [mode, setMode] = useState<Mode>('image');
   const [error, setError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
-  
-  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(undefined);
   
   const [isRecording, setIsRecording] = useState(false);
   const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
@@ -136,9 +121,6 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
   
   const [isFlashSupported, setIsFlashSupported] = useState(false);
   const [isFlashOn, setIsFlashOn] = useState(false);
-  
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [quality, setQuality] = useState<Quality>('1080p');
 
   // AR State
   const [detectedComponents, setDetectedComponents] = useState<ArComponent[]>([]);
@@ -149,8 +131,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
   // Advanced Camera Controls State
   const [trackCapabilities, setTrackCapabilities] = useState<MediaTrackCapabilities | null>(null);
   const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState(0);
-  const [tilt, setTilt] = useState(0);
+  
 
   const stopStream = useCallback(() => {
     if (streamRef.current) {
@@ -181,7 +162,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
     setIsArInitializing(false);
   }, []);
 
-  const startStream = useCallback(async (deviceId?: string) => {
+  const startStream = useCallback(async () => {
     stopStream();
     setIsInitializing(true);
     setError(null);
@@ -189,8 +170,8 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
     try {
         const constraints: MediaStreamConstraints = {
             video: {
-                deviceId: deviceId ? { exact: deviceId } : undefined,
-                ...qualityConstraints[quality],
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
                 facingMode: 'environment',
             },
             audio: true, 
@@ -210,20 +191,13 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
             // @ts-ignore
             setIsFlashSupported(!!capabilities.torch);
             
-            const settings = videoTrack.getSettings();
             // @ts-ignore
-            if (settings.zoom) setZoom(settings.zoom);
-             // @ts-ignore
-            if (settings.pan) setPan(settings.pan);
-             // @ts-ignore
-            if (settings.tilt) setTilt(settings.tilt);
+            if (capabilities.zoom) {
+                // @ts-ignore
+                setZoom(capabilities.zoom.min);
+            }
         }
 
-        const availableDevices = await navigator.mediaDevices.enumerateDevices();
-        setDevices(availableDevices.filter(d => d.kind === 'videoinput'));
-        if (!deviceId) {
-            setSelectedDeviceId(videoTrack.getSettings().deviceId);
-        }
     } catch (err: any) {
         if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
             setError(t('cameraPermissionDeniedError'));
@@ -234,7 +208,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
     } finally {
         setIsInitializing(false);
     }
-  }, [stopStream, quality, t]);
+  }, [stopStream, t]);
 
   const startArSession = useCallback(async () => {
     if (!streamRef.current || sessionPromiseRef.current) return;
@@ -249,7 +223,6 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
                 onopen: () => {
                     if (!streamRef.current) return;
                     
-                    // Video Streaming Setup
                     const videoEl = videoRef.current;
                     const canvasEl = canvasRef.current;
                     if (!videoEl || !canvasEl) return;
@@ -274,7 +247,6 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
                         );
                     }, 1000 / FRAME_RATE);
 
-                    // Audio Streaming Setup
                     audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
                     const source = audioContextRef.current.createMediaStreamSource(streamRef.current);
                     const scriptProcessor = audioContextRef.current.createScriptProcessor(AUDIO_BUFFER_SIZE, 1, 1);
@@ -382,25 +354,16 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
     const videoEl = videoRef.current;
     if (videoEl) {
         videoEl.addEventListener('loadedmetadata', updateOverlayLayout);
+        videoEl.addEventListener('playing', updateOverlayLayout);
     }
     return () => {
         window.removeEventListener('resize', updateOverlayLayout);
         if (videoEl) {
             videoEl.removeEventListener('loadedmetadata', updateOverlayLayout);
+            videoEl.removeEventListener('playing', updateOverlayLayout);
         }
     };
   }, [updateOverlayLayout]);
-
-
-  const handleDeviceChange = (deviceId: string) => {
-    setSelectedDeviceId(deviceId);
-    startStream(deviceId);
-  };
-  
-  const handleQualityChange = (newQuality: Quality) => {
-    setQuality(newQuality);
-    startStream(selectedDeviceId);
-  };
   
   const applyConstraint = useCallback(async (constraint: MediaTrackConstraints) => {
       if (!streamRef.current) return;
@@ -421,43 +384,12 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
   }, [isFlashSupported, isFlashOn, applyConstraint]);
 
   const handleZoomChange = (newZoom: number) => {
+      if (!trackCapabilities || !('zoom' in trackCapabilities)) return;
       setZoom(newZoom);
       // @ts-ignore
       applyConstraint({ zoom: newZoom });
   };
   
-  const handlePanChange = (direction: 'left' | 'right') => {
-      // @ts-ignore
-      if (!trackCapabilities?.pan) return;
-      // @ts-ignore
-      const { min, max, step } = trackCapabilities.pan;
-      let newPan = pan;
-      if (direction === 'left') {
-          newPan = Math.max(min, pan - step);
-      } else {
-          newPan = Math.min(max, pan + step);
-      }
-      setPan(newPan);
-      // @ts-ignore
-      applyConstraint({ pan: newPan });
-  };
-  
-  const handleTiltChange = (direction: 'up' | 'down') => {
-      // @ts-ignore
-      if (!trackCapabilities?.tilt) return;
-      // @ts-ignore
-      const { min, max, step } = trackCapabilities.tilt;
-      let newTilt = tilt;
-      if (direction === 'up') {
-          newTilt = Math.max(min, tilt - step);
-      } else {
-          newTilt = Math.min(max, tilt + step);
-      }
-      setTilt(newTilt);
-      // @ts-ignore
-      applyConstraint({ tilt: newTilt });
-  };
-
   const handleCapturePhoto = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
@@ -546,19 +478,19 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
   }, [capturedMediaUrl]);
 
   return (
-    <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col items-center justify-center animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="camera-capture-title">
+    <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="camera-capture-title">
         <h2 id="camera-capture-title" className="sr-only">{t('takePhoto')}</h2>
         
         <div className="relative w-full h-full flex items-center justify-center bg-black">
             {isInitializing && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-white bg-black/50">
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-white bg-black/50 z-30">
                     <SmallSpinner />
                     <p className="mt-2">{t('startingCamera')}</p>
                 </div>
             )}
             
             {(error) && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4">
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 z-30">
                     <p className="text-red-400">{error}</p>
                     <p className="text-gray-400 mt-2 text-sm">{t('cameraTroubleshooting')}</p>
                 </div>
@@ -575,7 +507,21 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
                     </div>
                 ) : (
                     <>
-                        <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-contain" />
+                        <video 
+                          ref={videoRef} 
+                          autoPlay 
+                          playsInline 
+                          muted 
+                          className="w-full h-full object-contain"
+                          onLoadedData={() => {
+                            if (videoRef.current) {
+                                videoRef.current.play().catch(e => {
+                                    console.error("Video play failed on onLoadedData:", e);
+                                });
+                                updateOverlayLayout();
+                            }
+                          }}
+                        />
                         <div style={overlayStyle}>
                             {detectedComponents.map((component, index) => (
                                 <div key={index} className="absolute border-2 border-yellow-400 transition-all duration-200" style={{
@@ -593,235 +539,87 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
             </div>
              <canvas ref={canvasRef} className="hidden" />
 
-            <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent">
-                <button 
-                  onClick={() => setIsSettingsOpen(!isSettingsOpen)} 
-                  className="p-2 text-white rounded-full bg-black/30 hover:bg-black/60 transition-colors" 
-                  aria-label={t('cameraSettings')} 
-                  title={t('tooltipSettings')}
-                  disabled={isRecording || !!capturedMediaUrl}
-                >
-                    <SettingsIcon className="w-6 h-6" />
-                </button>
+            <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent z-20">
+                <div>
+                    {isFlashSupported && !isRecording && !capturedMediaUrl && (
+                        <button
+                            onClick={handleToggleFlash}
+                            className="p-2 text-white rounded-full bg-black/30 hover:bg-black/60"
+                            title={isFlashOn ? t('turnFlashOff') : t('turnFlashOn')}
+                        >
+                            {isFlashOn ? <FlashOnIcon className="w-6 h-6"/> : <FlashOffIcon className="w-6 h-6"/>}
+                        </button>
+                    )}
+                </div>
                 <button onClick={onClose} className="p-2 text-white rounded-full bg-black/30 hover:bg-black/60 transition-colors" aria-label={t('closeCamera')} title={t('tooltipCloseCamera')}>
                     <CloseIcon className="w-6 h-6" />
                 </button>
             </div>
             
-            {isSettingsOpen && (
-                <div className="absolute top-16 left-4 bg-gray-800/80 backdrop-blur-sm p-4 rounded-lg border border-gray-600 shadow-lg text-white z-20">
-                    <div className="mb-3">
-                        <label htmlFor="camera-select" className="block text-sm font-medium mb-1">{t('camera')}</label>
-                        <select id="camera-select" value={selectedDeviceId} onChange={e => handleDeviceChange(e.target.value)} className="w-full bg-gray-700 border border-gray-500 rounded-md p-1.5 text-sm">
-                            {devices.map(device => (
-                                <option key={device.deviceId} value={device.deviceId}>{device.label || `Camera ${devices.indexOf(device) + 1}`}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1">{t('cameraQuality')}</label>
-                        <div className="flex gap-2">
-                           {(['480p', '720p', '1080p'] as Quality[]).map(q => (
-                                <button key={q} onClick={() => handleQualityChange(q)} className={`px-2 py-1 text-xs rounded-md ${quality === q ? 'bg-yellow-500 text-black' : 'bg-gray-600 hover:bg-gray-500'}`}>{t(`quality${q}`)}</button>
-                           ))}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {!capturedMediaUrl && !error && !isInitializing && (
-              <>
-                {/* Desktop Controls (Right side) */}
-                <div className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 flex-col items-center gap-4 bg-black/40 p-3 rounded-full z-10">
-                    {isFlashSupported && mode !== 'ar' && (
-                        <button
-                            onClick={handleToggleFlash}
-                            disabled={isRecording}
-                            className="p-2 text-white rounded-full enabled:hover:bg-black/60 disabled:opacity-50 transition-colors"
-                            title={isFlashOn ? t('turnFlashOff') : t('turnFlashOn')}
-                        >
-                            {isFlashOn ? <FlashOnIcon className="w-6 h-6"/> : <FlashOffIcon className="w-6 h-6"/>}
-                        </button>
-                    )}
-                    
-                    {/* @ts-ignore */}
-                    {trackCapabilities?.zoom && (
-                        <div className="flex flex-col items-center gap-2 text-white h-32 justify-center">
-                            <button
-                                // @ts-ignore
-                                onClick={() => handleZoomChange(Math.min(trackCapabilities.zoom.max, zoom + trackCapabilities.zoom.step))}
-                                // @ts-ignore
-                                disabled={zoom >= trackCapabilities.zoom.max || isRecording}
-                                className="p-1 rounded-full enabled:hover:bg-black/60 disabled:opacity-50"
-                                title={t('tooltipZoomIn')}
-                            >
-                                <ZoomInIcon className="w-5 h-5" />
-                            </button>
-                            <input
-                                type="range"
-                                // @ts-ignore
-                                min={trackCapabilities.zoom.min}
-                                // @ts-ignore
-                                max={trackCapabilities.zoom.max}
-                                // @ts-ignore
-                                step={trackCapabilities.zoom.step}
-                                value={zoom}
-                                onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-                                className="w-20 h-1 appearance-none bg-gray-600 rounded-full cursor-pointer"
-                                style={{ transform: 'rotate(-90deg)' }}
-                                disabled={isRecording}
-                            />
-                            <button
-                                // @ts-ignore
-                                onClick={() => handleZoomChange(Math.max(trackCapabilities.zoom.min, zoom - trackCapabilities.zoom.step))}
-                                // @ts-ignore
-                                disabled={zoom <= trackCapabilities.zoom.min || isRecording}
-                                className="p-1 rounded-full enabled:hover:bg-black/60 disabled:opacity-50"
-                                title={t('tooltipZoomOut')}
-                            >
-                                <ZoomOutIcon className="w-5 h-5" />
-                            </button>
-                        </div>
-                    )}
-                    
-                    {/* @ts-ignore */}
-                    {trackCapabilities?.pan && trackCapabilities?.tilt && (
-                        <div className="relative w-20 h-20">
-                            <button onClick={() => handleTiltChange('up')} className="absolute top-0 left-1/2 -translate-x-1/2 p-1 text-white rounded-full enabled:hover:bg-black/60 disabled:opacity-50" disabled={isRecording} title={t('tooltipPanUp')}><ArrowUpIcon className="w-6 h-6" /></button>
-                            <button onClick={() => handleTiltChange('down')} className="absolute bottom-0 left-1/2 -translate-x-1/2 p-1 text-white rounded-full enabled:hover:bg-black/60 disabled:opacity-50" disabled={isRecording} title={t('tooltipPanDown')}><ArrowDownIcon className="w-6 h-6" /></button>
-                            <button onClick={() => handlePanChange('left')} className="absolute left-0 top-1/2 -translate-y-1/2 p-1 text-white rounded-full enabled:hover:bg-black/60 disabled:opacity-50" disabled={isRecording} title={t('tooltipPanLeft')}><ArrowLeftIcon className="w-6 h-6" /></button>
-                            <button onClick={() => handlePanChange('right')} className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-white rounded-full enabled:hover:bg-black/60 disabled:opacity-50" disabled={isRecording} title={t('tooltipPanRight')}><ArrowRightIcon className="w-6 h-6" /></button>
-                        </div>
-                    )}
-                </div>
-
-                {/* Mobile Controls (Bottom) */}
-                <div className="absolute bottom-28 inset-x-4 flex sm:hidden items-center justify-around gap-2 bg-black/40 px-3 py-2 rounded-xl z-10">
-                    {isFlashSupported && mode !== 'ar' && (
-                        <button
-                            onClick={handleToggleFlash}
-                            disabled={isRecording}
-                            className="p-2 text-white rounded-full enabled:hover:bg-black/60 disabled:opacity-50"
-                            title={isFlashOn ? t('turnFlashOff') : t('turnFlashOn')}
-                        >
-                            {isFlashOn ? <FlashOnIcon className="w-6 h-6"/> : <FlashOffIcon className="w-6 h-6"/>}
-                        </button>
-                    )}
-                    
-                    {/* @ts-ignore */}
-                    {trackCapabilities?.zoom && (
-                        <div className="flex items-center gap-1 text-white">
-                            <button
-                                // @ts-ignore
-                                onClick={() => handleZoomChange(Math.max(trackCapabilities.zoom.min, zoom - trackCapabilities.zoom.step))}
-                                // @ts-ignore
-                                disabled={zoom <= trackCapabilities.zoom.min || isRecording}
-                                className="p-1 rounded-full enabled:hover:bg-black/60 disabled:opacity-50"
-                                title={t('tooltipZoomOut')}
-                            >
-                                <ZoomOutIcon className="w-5 h-5" />
-                            </button>
-                            <input
-                                type="range"
-                                // @ts-ignore
-                                min={trackCapabilities.zoom.min}
-                                // @ts-ignore
-                                max={trackCapabilities.zoom.max}
-                                // @ts-ignore
-                                step={trackCapabilities.zoom.step}
-                                value={zoom}
-                                onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-                                className="w-20 h-1 appearance-none bg-gray-600 rounded-full cursor-pointer"
-                                disabled={isRecording}
-                            />
-                            <button
-                                // @ts-ignore
-                                onClick={() => handleZoomChange(Math.min(trackCapabilities.zoom.max, zoom + trackCapabilities.zoom.step))}
-                                // @ts-ignore
-                                disabled={zoom >= trackCapabilities.zoom.max || isRecording}
-                                className="p-1 rounded-full enabled:hover:bg-black/60 disabled:opacity-50"
-                                title={t('tooltipZoomIn')}
-                            >
-                                <ZoomInIcon className="w-5 h-5" />
-                            </button>
-                        </div>
-                    )}
-                    
-                    {/* @ts-ignore */}
-                    {trackCapabilities?.pan && trackCapabilities?.tilt && (
-                        <div className="relative w-16 h-16">
-                            <button onClick={() => handleTiltChange('up')} className="absolute top-0 left-1/2 -translate-x-1/2 p-1 text-white rounded-full enabled:hover:bg-black/60 disabled:opacity-50" disabled={isRecording} title={t('tooltipPanUp')}><ArrowUpIcon className="w-5 h-5" /></button>
-                            <button onClick={() => handleTiltChange('down')} className="absolute bottom-0 left-1/2 -translate-x-1/2 p-1 text-white rounded-full enabled:hover:bg-black/60 disabled:opacity-50" disabled={isRecording} title={t('tooltipPanDown')}><ArrowDownIcon className="w-5 h-5" /></button>
-                            <button onClick={() => handlePanChange('left')} className="absolute left-0 top-1/2 -translate-y-1/2 p-1 text-white rounded-full enabled:hover:bg-black/60 disabled:opacity-50" disabled={isRecording} title={t('tooltipPanLeft')}><ArrowLeftIcon className="w-5 h-5" /></button>
-                            <button onClick={() => handlePanChange('right')} className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-white rounded-full enabled:hover:bg-black/60 disabled:opacity-50" disabled={isRecording} title={t('tooltipPanRight')}><ArrowRightIcon className="w-5 h-5" /></button>
-                        </div>
-                    )}
-                </div>
-              </>
-            )}
-            
             {(isArInitializing || arError) && mode === 'ar' && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-white bg-black/70 pointer-events-none">
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-white bg-black/70 pointer-events-none z-20">
                     {isArInitializing && <><SmallSpinner /> <p className="mt-2">{t('arInitializing')}</p></>}
                     {arError && <p className="text-red-400 text-center p-4">{arError}</p>}
                 </div>
             )}
-            
-            <div className="absolute bottom-0 left-0 right-0 p-6 flex flex-col items-center gap-4 bg-gradient-to-t from-black/70 to-transparent">
-                {!capturedMediaUrl && (
-                  <div className="flex items-center gap-2 bg-black/40 p-1 rounded-full text-sm font-semibold">
-                      <button onClick={() => switchMode('ar')} className={`px-4 py-1.5 rounded-full transition-colors ${mode === 'ar' ? 'bg-yellow-400 text-black' : 'text-white'}`} disabled={isRecording}>{t('arMode')}</button>
-                      <button onClick={() => switchMode('image')} className={`px-4 py-1.5 rounded-full transition-colors ${mode === 'image' ? 'bg-yellow-400 text-black' : 'text-white'}`} disabled={isRecording}>{t('photoMode')}</button>
-                      <button onClick={() => switchMode('video')} className={`px-4 py-1.5 rounded-full transition-colors ${mode === 'video' ? 'bg-yellow-400 text-black' : 'text-white'}`} disabled={isRecording}>{t('videoMode')}</button>
-                  </div>
+
+            <div className="absolute bottom-0 left-0 right-0 pb-6 pt-12 flex flex-col items-center gap-4 bg-gradient-to-t from-black/70 to-transparent z-10">
+                {capturedMediaUrl ? (
+                    <div className="w-full flex justify-around items-center px-4">
+                        <button onClick={handleRetake} className="flex flex-col items-center gap-1 text-white text-lg font-medium p-2" title={t('tooltipRetake')}>
+                            <RetakeIcon className="w-8 h-8"/>
+                        </button>
+                        <button onClick={handleUseMedia} className="w-20 h-20 bg-white rounded-full flex items-center justify-center" title={t('tooltipUseMedia')}>
+                            <CheckIcon className="w-12 h-12 text-black"/>
+                        </button>
+                        <div className="w-8 h-8"></div>
+                    </div>
+                ) : (
+                    <>
+                        {/* FIX: The 'zoom' property is non-standard and not in MediaTrackCapabilities. Cast to 'any' to prevent a TypeScript error. */}
+                        {(trackCapabilities as any)?.zoom && (
+                            <div className="w-full max-w-[280px] flex items-center gap-3 px-4 text-white">
+                                <ZoomOutIcon className="w-6 h-6 text-gray-400"/>
+                                <input
+                                    type="range"
+                                    // @ts-ignore
+                                    min={trackCapabilities.zoom.min}
+                                    // @ts-ignore
+                                    max={trackCapabilities.zoom.max}
+                                    // @ts-ignore
+                                    step={trackCapabilities.zoom.step}
+                                    value={zoom}
+                                    onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
+                                    className="w-full h-1 bg-white/30 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:bg-blue-500 [&::-webkit-slider-thumb]:rounded-full"
+                                    disabled={isRecording}
+                                    aria-label="Zoom control"
+                                />
+                                 <ZoomInIcon className="w-6 h-6 text-gray-400" />
+                            </div>
+                        )}
+                        <div className="flex items-center justify-center gap-6 text-white text-base font-semibold mt-4">
+                           <button onClick={() => switchMode('ar')} className={`px-3 py-1.5 transition-colors ${mode !== 'ar' && 'opacity-70'}`}>{t('arMode')}</button>
+                           <button onClick={() => switchMode('image')} className={`px-4 py-2 rounded-full transition-all duration-200 ${mode === 'image' ? 'bg-yellow-400 text-black' : ''}`}>{t('photoMode')}</button>
+                           <button onClick={() => switchMode('video')} className={`px-3 py-1.5 transition-colors ${mode !== 'video' && 'opacity-70'}`}>{t('videoMode')}</button>
+                       </div>
+
+                       <div className="h-24 flex items-center justify-center mt-2">
+                           <button 
+                               onClick={mode === 'image' ? handleCapturePhoto : (isRecording ? handleStopRecording : handleStartRecording)} 
+                               className="w-[72px] h-[72px] rounded-full border-4 border-white flex items-center justify-center transition-transform duration-200 active:scale-90 disabled:opacity-50"
+                               aria-label={mode === 'image' ? t('tooltipCapture') : (isRecording ? t('tooltipStopRecording') : t('tooltipStartRecording'))}
+                               title={mode === 'image' ? t('tooltipCapture') : (isRecording ? t('tooltipStopRecording') : t('tooltipStartRecording'))}
+                               disabled={mode === 'ar'}
+                           >
+                               {isRecording ? (
+                                   <div className="w-8 h-8 bg-red-500 rounded-md animate-pulse"></div>
+                               ) : (
+                                   <div className="w-[60px] h-[60px] bg-white rounded-full"></div>
+                               )}
+                           </button>
+                        </div>
+                    </>
                 )}
-                
-                <div className="w-full flex justify-around items-center min-h-[80px]">
-                    {capturedMediaUrl ? (
-                         <>
-                            <button onClick={handleRetake} className="flex flex-col items-center gap-1 text-white text-sm font-medium" title={t('tooltipRetake')}>
-                                <div className="w-16 h-16 rounded-full bg-gray-600/50 flex items-center justify-center hover:bg-gray-500/50 transition-colors"><RetakeIcon className="w-8 h-8"/></div>
-                                {t('retake')}
-                            </button>
-                            <button onClick={handleUseMedia} className="flex flex-col items-center gap-1 text-white text-sm font-medium" title={t('tooltipUseMedia')}>
-                                <div className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center hover:bg-green-600 transition-colors"><CheckIcon className="w-10 h-10"/></div>
-                                {t('useMedia')}
-                            </button>
-                        </>
-                    ) : (
-                         <>
-                            <div className="w-16 h-16"></div>
-                            
-                            {mode === 'ar' ? (
-                                isFlashSupported && (
-                                    <button 
-                                        onClick={handleToggleFlash}
-                                        className={`w-20 h-20 rounded-full border-4 flex items-center justify-center transition-colors ${isFlashOn ? 'border-yellow-400 bg-yellow-400/30' : 'border-white bg-white/30'}`}
-                                        aria-label={isFlashOn ? t('turnFlashOff') : t('turnFlashOn')}
-                                        title={isFlashOn ? t('turnFlashOff') : t('turnFlashOn')}
-                                    >
-                                        {isFlashOn ? <FlashOnIcon className="w-10 h-10 text-yellow-400"/> : <FlashOffIcon className="w-10 h-10 text-white"/>}
-                                    </button>
-                                )
-                            ) : (
-                                <button 
-                                    onClick={mode === 'image' ? handleCapturePhoto : (isRecording ? handleStopRecording : handleStartRecording)} 
-                                    className="w-20 h-20 rounded-full border-4 border-white bg-white/30 flex items-center justify-center"
-                                    aria-label={mode === 'image' ? t('tooltipCapture') : (isRecording ? t('tooltipStopRecording') : t('tooltipStartRecording'))}
-                                    title={mode === 'image' ? t('tooltipCapture') : (isRecording ? t('tooltipStopRecording') : t('tooltipStartRecording'))}
-                                >
-                                    {isRecording ? (
-                                        <StopIcon className="w-8 h-8 text-red-500 animate-pulse" />
-                                    ) : (
-                                        <div className={`w-18 h-18 rounded-full ${mode === 'image' ? 'bg-white' : 'bg-red-500'} transition-colors`}></div>
-                                    )}
-                                </button>
-                            )}
-                            
-                            <div className="w-16 h-16"></div>
-                        </>
-                    )}
-                </div>
             </div>
         </div>
     </div>

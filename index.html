@@ -5,7 +5,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jharkhand Mines Machinery Repair AI</title>
-  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="./icons/icon-192x192.svg" type="image/svg+xml">
+  <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#facc15">
   <script src="https://cdn.tailwindcss.com"></script>
 <script type="importmap">
@@ -21,14 +22,11 @@
 </head>
 <body class="bg-gray-900">
   <div id="root"></div>
-  <script type="module" src="/index.tsx"></script>
+  <script type="module" src="./index.tsx"></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        // Construct the full URL to the service worker to avoid cross-origin issues
-        // in certain hosting environments.
-        const swUrl = `${location.protocol}//${location.host}/sw.js`;
-        navigator.serviceWorker.register(swUrl).then(registration => {
+        navigator.serviceWorker.register('./sw.js').then(registration => {
           console.log('ServiceWorker registration successful with scope: ', registration.scope);
         }, err => {
           console.log('ServiceWorker registration failed: ', err);
