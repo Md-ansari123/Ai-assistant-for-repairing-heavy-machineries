@@ -5,34 +5,191 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jharkhand Mines Machinery Repair AI</title>
-  <link rel="icon" href="./icons/icon-192x192.svg" type="image/svg+xml">
-  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="icons/icon-192x192.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#facc15">
   <script src="https://cdn.tailwindcss.com"></script>
-<script type="importmap">
+  <script type="importmap">
 {
   "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.25.0",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.25.0"
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
   }
 }
 </script>
+  <style>
+    /* Custom keyframes for animations */
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+    .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
+    @keyframes slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    .animate-slide-in { animation: slide-in 0.3s ease-out forwards; }
+  </style>
 </head>
-<body class="bg-gray-900">
-  <div id="root"></div>
-  <script type="module" src="./index.tsx"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').then(registration => {
-          console.log('ServiceWorker registration successful with scope: ', registration.scope);
-        }, err => {
-          console.log('ServiceWorker registration failed: ', err);
-        });
-      });
-    }
-  </script>
+<body class="bg-gray-900 text-gray-100 min-h-screen font-sans">
+
+  <!-- App Container -->
+  <div id="app-container">
+    
+    <!-- Header -->
+    <header id="app-header" class="flex items-center justify-between p-4 border-b-2 border-yellow-500/30">
+        <!-- Left side: Logo & Title -->
+        <div class="flex items-center justify-start gap-3 sm:gap-4">
+          <div id="header-logo" class="w-10 h-10 sm:w-12 sm:h-12 text-yellow-400"></div>
+          <div>
+              <h1 id="header-title" class="text-xl sm:text-2xl font-bold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-yellow-500" data-t="appTitle"></h1>
+              <p id="header-subtitle" class="text-xs sm:text-sm text-gray-400" data-t="appSubtitle"></p>
+          </div>
+        </div>
+        <!-- Right side: Controls -->
+        <div class="flex items-center gap-2 sm:gap-4">
+          <button id="history-button" class="text-gray-400 hover:text-yellow-300 transition-colors p-2 rounded-full hover:bg-gray-800">
+            <span class="sr-only" data-t="historyTitle"></span>
+            <div id="history-button-icon" class="w-6 h-6"></div>
+          </button>
+          <div class="flex items-center gap-2">
+            <div id="translate-icon" class="w-5 h-5 text-gray-400 hidden sm:block"></div>
+            <select id="language-select" class="bg-gray-800 border border-gray-600 text-gray-200 text-xs sm:text-sm rounded-lg focus:ring-yellow-500 focus:border-yellow-500 p-1.5 sm:p-2 pr-7 sm:pr-8 appearance-none"></select>
+            <span id="translating-indicator" class="text-xs sm:text-sm text-yellow-300 animate-pulse hidden md:block" data-t="translating"></span>
+          </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="app-main" class="container mx-auto p-4 sm:p-6 md:p-8 max-w-4xl">
+        
+        <!-- Problem Input Form -->
+        <form id="problem-form" class="bg-gray-800/50 p-6 rounded-lg shadow-lg border border-gray-700">
+            <div class="mb-4">
+                <div class="flex justify-between items-center mb-2">
+                    <label for="problem-description" class="block text-lg font-medium text-yellow-300" data-t="describeIssue"></label>
+                    <div id="listening-indicator" class="flex items-center gap-2 text-sm text-yellow-300 animate-pulse hidden" aria-live="polite">
+                        <div class="w-2 h-2 bg-red-500 rounded-full"></div>
+                        <span data-t="listening"></span>
+                    </div>
+                </div>
+                <div class="relative w-full">
+                    <textarea id="problem-description" rows="5" class="w-full p-3 pr-14 bg-gray-900 border rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition duration-200 text-gray-200 placeholder-gray-500 border-gray-600"></textarea>
+                    <button type="button" id="speech-to-text-button" class="absolute bottom-3 right-3 p-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-900 bg-gray-700 text-gray-300 hover:bg-gray-600">
+                      <div id="mic-icon" class="w-5 h-5"></div>
+                    </button>
+                </div>
+                <p id="description-error" class="text-sm text-red-400 mt-2 hidden"></p>
+            </div>
+            <div class="mb-6">
+                <label class="block text-lg font-medium text-yellow-300 mb-2" data-t="addMediaOptional"></label>
+                <div id="media-preview-container" class="mt-2 text-center hidden"></div>
+                <div id="drop-zone" class="border-2 border-dashed rounded-lg p-6 text-center transition-colors border-gray-600 hover:border-gray-500 cursor-pointer bg-gray-800/50">
+                    <input id="file-upload" type="file" class="sr-only"/>
+                    <label for="file-upload" class="flex flex-col items-center justify-center cursor-pointer">
+                        <svg class="w-12 h-12 mb-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                        <p class="mb-2 text-sm text-gray-400"><span class="font-semibold text-yellow-300" data-t="uploadFile"></span> <span data-t="dragAndDrop"></span></p>
+                        <p id="file-types-info" class="text-xs text-gray-500"></p>
+                        <p id="media-error" class="text-sm text-red-400 mt-2 hidden"></p>
+                    </label>
+                </div>
+            </div>
+            <div class="flex flex-col sm:flex-row items-center gap-4">
+              <div class="hidden sm:block border-t border-gray-600 flex-grow"></div>
+              <span class="text-gray-500 uppercase text-sm font-semibold" data-t="orSeparator"></span>
+              <div class="border-t border-gray-600 flex-grow"></div>
+            </div>
+            <div class="mt-4">
+                <button type="button" id="camera-button" class="w-full flex justify-center items-center gap-2 py-2.5 px-5 text-base font-medium text-gray-200 focus:outline-none bg-gray-700 rounded-lg border border-gray-600 hover:bg-gray-600 hover:text-white focus:z-10 focus:ring-4 focus:ring-gray-700">
+                    <div id="camera-icon" class="w-5 h-5 mr-2"></div>
+                    <span data-t="takePhoto"></span>
+                </button>
+            </div>
+            <div class="mt-4">
+                <button type="submit" id="submit-button" class="w-full text-gray-900 bg-yellow-400 hover:bg-yellow-500 focus:ring-4 focus:outline-none focus:ring-yellow-300 font-medium rounded-lg text-base px-5 py-3 text-center transition-colors">
+                    <span data-t="getRepairGuide"></span>
+                </button>
+            </div>
+        </form>
+
+        <!-- Error Display -->
+        <div id="error-display" class="mt-6 bg-red-900/50 border border-red-700 text-red-200 p-4 rounded-lg text-center hidden"></div>
+
+        <!-- Loading Spinner -->
+        <div id="loading-spinner" class="hidden"></div>
+        
+        <!-- Repair Guide -->
+        <div id="repair-guide-container" class="hidden"></div>
+
+    </main>
+
+    <!-- Chat Button -->
+    <button id="chat-button" class="hidden fixed bottom-6 right-6 bg-yellow-400 text-gray-900 w-16 h-16 rounded-full shadow-lg flex items-center justify-center hover:bg-yellow-500 transition-transform transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-yellow-500 z-40 will-change-transform">
+        <span class="absolute -top-1 -right-1 flex h-4 w-4">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-4 w-4 bg-red-500"></span>
+        </span>
+        <div id="chat-button-icon" class="w-8 h-8"></div>
+    </button>
+
+    <!-- Chatbot Widget -->
+    <div id="chatbot-widget" class="hidden fixed bottom-0 right-0 sm:bottom-8 sm:right-8 w-full h-full sm:w-[400px] sm:h-[600px] sm:max-h-[80vh] z-50 flex flex-col">
+       <div class="flex flex-col flex-grow bg-gray-800 border-2 border-yellow-500/50 shadow-2xl sm:rounded-lg overflow-hidden">
+        <header class="flex items-center justify-between p-4 bg-gray-900 border-b border-gray-700">
+          <div class="flex items-center gap-3">
+            <div id="chatbot-header-icon" class="w-8 h-8 text-yellow-400"></div>
+            <h2 class="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-yellow-500" data-t="chatTitle"></h2>
+          </div>
+          <button id="chatbot-close-button" class="text-gray-400 hover:text-white transition-colors">
+            <div id="chatbot-close-icon" class="w-6 h-6"></div>
+          </button>
+        </header>
+        <div id="chatbot-messages" class="flex-1 p-4 overflow-y-auto space-y-4"></div>
+        <div class="p-4 bg-gray-900/70 border-t border-gray-700">
+          <form id="chatbot-form" class="flex items-center gap-2">
+            <input id="chatbot-input" type="text" class="flex-1 p-2 bg-gray-700 border border-gray-600 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition duration-200 text-gray-200 placeholder-gray-400"/>
+            <button id="chatbot-send-button" type="submit" class="p-2 bg-yellow-400 text-gray-900 rounded-md hover:bg-yellow-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors">
+              <div id="chatbot-send-icon" class="w-6 h-6"></div>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- History Panel -->
+    <div id="history-panel" class="hidden fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-50 flex justify-end">
+      <div class="w-full max-w-md h-full bg-gray-800 border-l-2 border-yellow-500/50 shadow-2xl flex flex-col animate-slide-in">
+        <header class="flex items-center justify-between p-4 bg-gray-900 border-b border-gray-700 flex-shrink-0">
+          <div class="flex items-center gap-3">
+            <div id="history-header-icon" class="w-7 h-7 text-yellow-400"></div>
+            <h2 class="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-300 to-yellow-500" data-t="historyTitle"></h2>
+          </div>
+          <button id="history-close-button" class="text-gray-400 hover:text-white transition-colors">
+            <div id="history-close-icon" class="w-6 h-6"></div>
+          </button>
+        </header>
+        <div id="history-list" class="flex-1 p-4 overflow-y-auto"></div>
+        <footer id="history-footer" class="p-4 bg-gray-900/70 border-t border-gray-700 flex-shrink-0 hidden">
+          <div id="clear-history-confirm" class="text-center hidden">
+            <p class="text-sm text-yellow-200 mb-3" data-t="confirmClearHistory"></p>
+            <div class="flex justify-center gap-4">
+              <button id="clear-history-cancel-button" class="px-4 py-1.5 text-sm rounded-md bg-gray-600 hover:bg-gray-500 text-white" data-t="cancel"></button>
+              <button id="clear-history-confirm-button" class="px-4 py-1.5 text-sm rounded-md bg-red-600 hover:bg-red-500 text-white" data-t="confirmDelete"></button>
+            </div>
+          </div>
+          <button id="clear-history-button" class="w-full flex justify-center items-center gap-2 py-2 px-4 border border-red-700/50 rounded-md shadow-sm text-sm font-medium text-red-300 hover:bg-red-900/30 hover:border-red-600 transition-colors">
+            <div id="clear-history-icon" class="w-5 h-5"></div>
+            <span data-t="clearHistory"></span>
+          </button>
+        </footer>
+      </div>
+    </div>
+
+    <!-- Camera Capture Modal -->
+    <div id="camera-modal" class="hidden fixed inset-0 bg-black z-50 flex-col items-center justify-center animate-fade-in" role="dialog" aria-modal="true"></div>
+
+  </div>
+  
+  <div id="loading-overlay" class="bg-gray-900 text-gray-100 min-h-screen flex items-center justify-center fixed inset-0 z-[100]">
+      <p class="text-yellow-400 text-lg">Loading application...</p>
+  </div>
+
+  <script type="module" src="index.js"></script>
 </body>
 </html>

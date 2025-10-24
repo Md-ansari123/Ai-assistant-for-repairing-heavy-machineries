@@ -1,56 +1,11 @@
+
 const CACHE_NAME = 'jharkhand-repair-ai-v1';
 const urlsToCache = [
   '.',
   'index.html',
-  'index.tsx',
-  'App.tsx',
-  'types.ts',
+  'index.js',
+  'manifest.json',
   'metadata.json',
-  'services/geminiService.ts',
-  'contexts/LanguageContext.tsx',
-  'components/Header.tsx',
-  'components/ProblemInputForm.tsx',
-  'components/RepairGuide.tsx',
-  'components/History.tsx',
-  'components/ChatButton.tsx',
-  'components/Chatbot.tsx',
-  'components/CameraCapture.tsx',
-  'components/SpeechToTextInput.tsx',
-  'components/VideoGenerationModal.tsx',
-  'components/InteractiveGuideViewer.tsx',
-  'components/icons/MiningTruckIcon.tsx',
-  'components/icons/TranslateIcon.tsx',
-  'components/icons/HistoryIcon.tsx',
-  'components/icons/LoadingSpinner.tsx',
-  'components/icons/CostIcon.tsx',
-  'components/icons/AvailabilityIcon.tsx',
-  'components/icons/ToolIcon.tsx',
-  'components/icons/WarningIcon.tsx',
-  'components/icons/StepIcon.tsx',
-  'components/icons/MaterialsIcon.tsx',
-  'components/icons/ExportIcon.tsx',
-  'components/icons/ThumbsUpIcon.tsx',
-  'components/icons/ThumbsDownIcon.tsx',
-  'components/icons/PreventativeIcon.tsx',
-  'components/icons/EditIcon.tsx',
-  'components/icons/TrashIcon.tsx',
-  'components/icons/MachineDowntimeIcon.tsx',
-  'components/icons/ManualLaborIcon.tsx',
-  'components/icons/CameraIcon.tsx',
-  'components/icons/VideoIcon.tsx',
-  'components/icons/FlashOnIcon.tsx',
-  'components/icons/FlashOffIcon.tsx',
-  'components/icons/SettingsIcon.tsx',
-  'components/icons/RetakeIcon.tsx',
-  'components/icons/CheckIcon.tsx',
-  'components/icons/StopIcon.tsx',
-  'components/icons/SmallSpinner.tsx',
-  'components/icons/ZoomInIcon.tsx',
-  'components/icons/ZoomOutIcon.tsx',
-  'components/icons/ChatIcon.tsx',
-  'components/icons/SendIcon.tsx',
-  'components/icons/CloseIcon.tsx',
-  'components/icons/MicrophoneIcon.tsx',
   'translations/en.json',
   'translations/hi.json',
   'translations/bn.json',
@@ -70,7 +25,13 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('Opened cache');
-        return cache.addAll(urlsToCache);
+        // Use {ignoreVary: true} to avoid issues with opaque responses for CDN assets
+        const requests = urlsToCache.map(url => new Request(url, {cache: 'reload'}));
+        return cache.addAll(requests).catch(err => {
+            console.error('Failed to cache all URLs:', err);
+            // Even if one fails, we might want to continue.
+            // For a better UX, you might want to handle this more gracefully.
+        });
       })
   );
 });
